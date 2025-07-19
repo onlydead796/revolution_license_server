@@ -2,7 +2,7 @@ import os
 import json
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
 from dotenv import load_dotenv
 
@@ -252,6 +252,31 @@ def logout():
     session.pop('logged_in', None)
     flash("Başarıyla çıkış yapıldı.", "info")
     return redirect(url_for('login'))
+
+
+
+@app.route('/api/check_license', methods=['POST'])
+def check_license():
+    data = request.get_json()
+    if not data or 'license_key' not in data:
+        return {"status": "error", "message": "Lisans anahtarı gönderilmedi."}, 400
+    
+    license_key = data['license_key'].strip().upper()
+    
+    with open(LICENSE_FILE) as f:
+        licenses = json.load(f)
+    
+    for lic in licenses:
+        if lic['key'].upper() == license_key:
+            created = datetime.strptime(lic['created_at'], "%Y-%m-%d")
+            expiry_days = lic['expiry']
+            expiry_date = created + timedelta(days=expiry_days)
+            if datetime.utcnow() > expiry_date:
+                return {"status": "error", "message": "Lisans süresi dolmuş."}, 403
+            else:
+                return {"status": "success", "message": "Lisans geçerli.", "username": lic['username']}
+    
+    return {"status": "error", "message": "Lisans bulunamadı."}, 404
 
 
 if __name__ == '__main__':
