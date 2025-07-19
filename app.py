@@ -8,8 +8,8 @@ app.secret_key = 'myverysecretkey1234567890_random_secure_value'  # Sabit secret
 
 LICENSE_FILE = "licenses.json"
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "test")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "tester123")
 
 if not os.path.exists(LICENSE_FILE):
     with open(LICENSE_FILE, 'w') as f:
