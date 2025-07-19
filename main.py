@@ -1,12 +1,14 @@
 import os
-import json  # json modülünü buraya ekledim
+import json
+import random
+import string
+from datetime import datetime
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
 from dotenv import load_dotenv
 
 # .env dosyasını yükle
 load_dotenv()
 
-# Flask uygulaması
 app = Flask(__name__)
 app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
 
@@ -35,6 +37,7 @@ TEMPLATE = '''
             display: flex;
             justify-content: center;
             align-items: center;
+            background-color: #121212;
         }
         .login-form {
             width: 100%;
@@ -42,7 +45,8 @@ TEMPLATE = '''
             padding: 30px;
             background-color: #333;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            color: white;
         }
     </style>
 </head>
@@ -114,6 +118,7 @@ TEMPLATE = '''
         <p class="text-center">Henüz lisans eklenmemiş.</p>
         {% endif %}
     </div>
+
 {% else %}
     <div class="container login-container">
         <div class="login-form">
@@ -132,7 +137,7 @@ TEMPLATE = '''
 
             <form method="POST" action="{{ url_for('login') }}">
                 <div class="mb-3">
-                    <input type="text" name="username" class="form-control" placeholder="Kullanıcı Adı" required>
+                    <input type="text" name="username" class="form-control" placeholder="Kullanıcı Adı" required autofocus>
                 </div>
                 <div class="mb-3">
                     <input type="password" name="password" class="form-control" placeholder="Şifre" required>
@@ -150,7 +155,33 @@ TEMPLATE = '''
 </html>
 '''
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
+def root():
+    if session.get('logged_in'):
+        return redirect(url_for('home'))
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
+        admin_password = os.getenv('ADMIN_PASSWORD', 'adminpassword')
+
+        if username == admin_username and password == admin_password:
+            session['logged_in'] = True
+            flash("Giriş başarılı!", "success")
+            return redirect(url_for('home'))
+        else:
+            flash("Kullanıcı adı veya şifre hatalı!", "danger")
+            return redirect(url_for('login'))
+
+    return render_template_string(TEMPLATE)
+
+@app.route('/home', methods=['GET'])
 def home():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
@@ -159,25 +190,52 @@ def home():
         licenses = json.load(f)
     return render_template_string(TEMPLATE, licenses=licenses)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+@app.route('/create', methods=['POST'])
+def create():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
 
-        # .env dosyasından admin kullanıcı adı ve şifreyi al
-        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
-        admin_password = os.getenv('ADMIN_PASSWORD', 'adminpassword')
+    username = request.form['username']
+    key = request.form.get('key', '').strip()
+    expiry_days = request.form.get('expiry', '').strip()
 
-        # Kullanıcı adı ve şifreyi kontrol et
-        if username == admin_username and password == admin_password:
-            session['logged_in'] = True
-            flash("Giriş başarılı!", "success")
-            return redirect(url_for('home'))
-        else:
-            flash("Kullanıcı adı veya şifre hatalı!", "danger")
-    
-    return render_template_string(TEMPLATE)
+    if not key:
+        key = generate_license_key()
+
+    try:
+        expiry_days = int(expiry_days)
+        if expiry_days <= 0:
+            expiry_days = 30
+    except:
+        expiry_days = 30
+
+    new_lic = {
+        "username": username,
+        "key": key,
+        "expiry": expiry_days,
+        "created_at": datetime.utcnow().strftime("%Y-%m-%d")
+    }
+
+    with open(LICENSE_FILE) as f:
+        licenses = json.load(f)
+    licenses.append(new_lic)
+    with open(LICENSE_FILE, 'w') as f:
+        json.dump(licenses, f, indent=2)
+    flash(f"Lisans başarıyla oluşturuldu: {key}", "success")
+    return redirect(url_for('home'))
+
+@app.route('/delete/<key>')
+def delete(key):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    with open(LICENSE_FILE) as f:
+        licenses = json.load(f)
+    licenses = [lic for lic in licenses if lic['key'] != key]
+    with open(LICENSE_FILE, 'w') as f:
+        json.dump(licenses, f, indent=2)
+    flash("Lisans başarıyla silindi.", "warning")
+    return redirect(url_for('home'))
 
 @app.route('/logout')
 def logout():
