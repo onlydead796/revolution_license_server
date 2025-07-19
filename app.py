@@ -8,8 +8,9 @@ app.secret_key = 'myverysecretkey1234567890_random_secure_value'  # Sabit secret
 
 LICENSE_FILE = "licenses.json"
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "test")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "tester123")
+# Ortam değişkenlerine bağlı olmadan sabit kullanıcı adı ve şifre:
+ADMIN_USERNAME = "test"
+ADMIN_PASSWORD = "tester123"
 
 if not os.path.exists(LICENSE_FILE):
     with open(LICENSE_FILE, 'w') as f:
@@ -52,6 +53,12 @@ TEMPLATE = '''
 def home():
     error = None
     if request.method == 'POST':
+        # Debug amaçlı gelen ve beklenen değerleri yazdır
+        print("Gelen kullanıcı adı:", request.form['username'])
+        print("Gelen şifre:", request.form['password'])
+        print("Beklenen kullanıcı adı:", ADMIN_USERNAME)
+        print("Beklenen şifre:", ADMIN_PASSWORD)
+
         if request.form['username'] == ADMIN_USERNAME and request.form['password'] == ADMIN_PASSWORD:
             session['logged_in'] = True
             return redirect(url_for('home'))
