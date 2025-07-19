@@ -4,7 +4,7 @@ import json, random, string
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
+app.secret_key = 'myverysecretkey1234567890_random_secure_value'  # Sabit secret key
 
 LICENSE_FILE = "licenses.json"
 
