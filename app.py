@@ -9,8 +9,8 @@ app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
 LICENSE_FILE = "licenses.json"
 
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "default_admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "default_pass")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "test")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "tester123")
 
 if not os.path.exists(LICENSE_FILE):
     with open(LICENSE_FILE, 'w') as f:
