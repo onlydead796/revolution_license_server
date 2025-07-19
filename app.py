@@ -8,7 +8,6 @@ app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
 
 LICENSE_FILE = "licenses.json"
 
-
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "test")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "tester123")
 
@@ -114,14 +113,13 @@ def logout():
 @app.route('/api/check_license', methods=['POST'])
 def check_license_api():
     data = request.get_json()
-    username = data.get("username")
     key = data.get("key")
 
     with open(LICENSE_FILE) as f:
         licenses = json.load(f)
 
     for lic in licenses:
-        if lic["username"] == username and lic["key"] == key:
+        if lic["key"] == key:
             created_at_str = lic.get("created_at")
             expiry_days = lic.get("expiry", 0)
             if created_at_str and expiry_days:
