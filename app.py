@@ -4,13 +4,13 @@ import json, random, string
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = 'myverysecretkey1234567890_random_secure_value'  # Sabit secret key
+app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
 
 LICENSE_FILE = "licenses.json"
 
-# Ortam değişkenlerine bağlı olmadan sabit kullanıcı adı ve şifre:
-ADMIN_USERNAME = "test"
-ADMIN_PASSWORD = "tester123"
+
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "default_admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "default_pass")
 
 if not os.path.exists(LICENSE_FILE):
     with open(LICENSE_FILE, 'w') as f:
@@ -22,7 +22,7 @@ def generate_license_key(length=16):
 
 TEMPLATE = '''
 <!doctype html>
-<title>Admin Panel</title>
+<title>Pussly Admin Panel</title>
 <h2>Admin Panel - Lisans Yönetimi</h2>
 {% if session.get('logged_in') %}
   <p><a href="{{ url_for('logout') }}">Çıkış Yap</a></p>
@@ -53,12 +53,6 @@ TEMPLATE = '''
 def home():
     error = None
     if request.method == 'POST':
-        # Debug amaçlı gelen ve beklenen değerleri yazdır
-        print("Gelen kullanıcı adı:", request.form['username'])
-        print("Gelen şifre:", request.form['password'])
-        print("Beklenen kullanıcı adı:", ADMIN_USERNAME)
-        print("Beklenen şifre:", ADMIN_PASSWORD)
-
         if request.form['username'] == ADMIN_USERNAME and request.form['password'] == ADMIN_PASSWORD:
             session['logged_in'] = True
             return redirect(url_for('home'))
@@ -140,5 +134,4 @@ def check_license_api():
     return jsonify({"success": False, "message": "Lisans bulunamadı veya bilgileri yanlış."}), 401
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=8080)
