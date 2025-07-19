@@ -4,6 +4,9 @@ import random
 import string
 from datetime import datetime
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
