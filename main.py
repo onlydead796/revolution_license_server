@@ -1,7 +1,9 @@
 import os
+import json
+import random
+import string
+from datetime import datetime
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
-import json, random, string
-from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
@@ -25,8 +27,40 @@ TEMPLATE = '''
     <title>Pussly Admin Panel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://kit.fontawesome.com/a2e1e6d3c2.js" crossorigin="anonymous"></script>
+    <style>
+        /* Giriş ekranı için koyu tema senin kodundaki gibi */
+        .login-container {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #333;
+        }
+        .login-form {
+            width: 100%;
+            max-width: 400px;
+            padding: 30px;
+            background-color: #333;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.7);
+            color: white;
+        }
+        /* Yönetim paneli koyu arkaplan, metin açık */
+        body.admin {
+            background-color: #121212;
+            color: #eee;
+        }
+        .admin .table {
+            color: #eee;
+        }
+        .admin a.btn-danger {
+            color: white;
+        }
+    </style>
 </head>
-<body class="bg-dark text-light">
+<body class="{% if session.get('logged_in') %}admin{% else %}bg-dark text-light{% endif %}">
+
+{% if session.get('logged_in') %}
 <div class="container py-4">
 
     <h1 class="mb-4 text-center"><i class="fas fa-cogs me-2"></i>Pussly Admin Panel</h1>
@@ -94,23 +128,73 @@ TEMPLATE = '''
     {% endif %}
 
 </div>
+{% else %}
+<div class="login-container">
+    <div class="login-form">
+        <h1 class="mb-4 text-center"><i class="fas fa-cogs me-2"></i>Pussly Admin Panel</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="mb-3">
+                <input type="text" name="username" class="form-control" placeholder="Kullanıcı Adı" required autofocus>
+            </div>
+            <div class="mb-3">
+                <input type="password" name="password" class="form-control" placeholder="Şifre" required>
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">Giriş Yap</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 '''
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
 def home():
-    session['logged_in'] = True
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
     with open(LICENSE_FILE) as f:
         licenses = json.load(f)
     return render_template_string(TEMPLATE, licenses=licenses)
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
+        admin_password = os.getenv('ADMIN_PASSWORD', 'adminpassword')
+
+        if username == admin_username and password == admin_password:
+            session['logged_in'] = True
+            flash("Giriş başarılı!", "success")
+            return redirect(url_for('home'))
+        else:
+            flash("Kullanıcı adı veya şifre hatalı!", "danger")
+
+    return render_template_string(TEMPLATE)
+
 @app.route('/create', methods=['POST'])
 def create():
     if not session.get('logged_in'):
-        return redirect(url_for('home'))
+        return redirect(url_for('login'))
 
     username = request.form['username']
     key = request.form.get('key', '').strip()
@@ -135,21 +219,28 @@ def create():
 
     with open(LICENSE_FILE) as f:
         licenses = json.load(f)
+
     licenses.append(new_lic)
+
     with open(LICENSE_FILE, 'w') as f:
         json.dump(licenses, f, indent=2)
+
     flash(f"Lisans başarıyla oluşturuldu: {key}", "success")
     return redirect(url_for('home'))
 
 @app.route('/delete/<key>')
 def delete(key):
     if not session.get('logged_in'):
-        return redirect(url_for('home'))
+        return redirect(url_for('login'))
+
     with open(LICENSE_FILE) as f:
         licenses = json.load(f)
+
     licenses = [lic for lic in licenses if lic['key'] != key]
+
     with open(LICENSE_FILE, 'w') as f:
         json.dump(licenses, f, indent=2)
+
     flash("Lisans başarıyla silindi.", "warning")
     return redirect(url_for('home'))
 
@@ -157,7 +248,8 @@ def delete(key):
 def logout():
     session.pop('logged_in', None)
     flash("Başarıyla çıkış yapıldı.", "info")
-    return redirect(url_for('home'))
+    return redirect(url_for('login'))
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)
