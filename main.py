@@ -5,28 +5,48 @@ import string
 from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
 from dotenv import load_dotenv
-from pymongo import MongoClient
-from bson import ObjectId
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
 
-# MongoDB bağlantısı
+# PostgreSQL bağlantısı
 def get_db_connection():
-    mongo_uri = os.getenv('MONGODB_URI')
-    if mongo_uri:
-        client = MongoClient(mongo_uri)
-        return client.licenses_db
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        # Render PostgreSQL için
+        return psycopg2.connect(database_url)
     else:
         # Yerel geliştirme için
-        client = MongoClient('mongodb://localhost:27017/')
-        return client.licenses_db
+        return psycopg2.connect(
+            host="localhost",
+            database="licenses_db",
+            user="postgres",
+            password="password"
+        )
 
-# Veritabanı bağlantısını al
-db = get_db_connection()
-licenses_collection = db.licenses
+# Veritabanı tablosunu oluştur
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS licenses (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) NOT NULL,
+            license_key VARCHAR(50) UNIQUE NOT NULL,
+            expiry_days INTEGER NOT NULL,
+            created_at DATE NOT NULL
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# Uygulama başladığında veritabanını başlat
+init_db()
 
 def generate_license_key(length=16):
     chars = string.ascii_uppercase + string.digits
@@ -127,7 +147,7 @@ TEMPLATE = '''
             <td>{{ lic['username'] }}</td>
             <td><code>{{ lic['license_key'] }}</code></td>
             <td>{{ lic['expiry_days'] }}</td>
-            <td>{{ lic['created_at'].strftime('%Y-%m-%d') }}</td>
+            <td>{{ lic['created_at'] }}</td>
             <td>
               <a href="{{ url_for('delete', key=lic['license_key']) }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');" title="Sil">
                 Sil
@@ -183,7 +203,12 @@ def home():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    licenses = list(licenses_collection.find({}))
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM licenses")
+    licenses = cur.fetchall()
+    cur.close()
+    conn.close()
     return render_template_string(TEMPLATE, licenses=licenses)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -223,13 +248,13 @@ def create():
     except:
         expiry_days = 30
 
-    license_data = {
-        "username": username,
-        "license_key": key,
-        "expiry_days": expiry_days,
-        "created_at": datetime.utcnow()
-    }
-    licenses_collection.insert_one(license_data)
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO licenses (username, license_key, expiry_days, created_at) VALUES (%s, %s, %s, %s)",
+                (username, key, expiry_days, datetime.utcnow()))
+    conn.commit()
+    cur.close()
+    conn.close()
 
     flash(f"Lisans başarıyla oluşturuldu: {key}", "success")
     return redirect(url_for('home'))
@@ -239,7 +264,12 @@ def delete(key):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    licenses_collection.delete_one({"license_key": key})
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM licenses WHERE license_key = %s", (key,))
+    conn.commit()
+    cur.close()
+    conn.close()
 
     flash("Lisans başarıyla silindi.", "warning")
     return redirect(url_for('home'))
@@ -261,13 +291,18 @@ def check_license():
     
     license_key = data['license_key'].strip().upper()
     
-    lic = licenses_collection.find_one({"license_key": license_key})
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM licenses WHERE license_key = %s", (license_key,))
+    lic = cur.fetchone()
+    cur.close()
+    conn.close()
 
     if lic:
         created = lic['created_at']
         expiry_days = lic['expiry_days']
         expiry_date = created + timedelta(days=expiry_days)
-        if datetime.utcnow() > expiry_date:
+        if datetime.utcnow().date() > expiry_date:
             return {"status": "error", "message": "Lisans süresi dolmuş."}, 403
         else:
             return {"status": "success", "message": "Lisans geçerli.", "username": lic['username']}
