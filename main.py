@@ -5,17 +5,28 @@ import string
 from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
 from dotenv import load_dotenv
+from pymongo import MongoClient
+from bson import ObjectId
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('APP_SECRET_KEY', 'default_secret_key_123456789')
 
-LICENSE_FILE = "licenses.json"
+# MongoDB bağlantısı
+def get_db_connection():
+    mongo_uri = os.getenv('MONGODB_URI')
+    if mongo_uri:
+        client = MongoClient(mongo_uri)
+        return client.licenses_db
+    else:
+        # Yerel geliştirme için
+        client = MongoClient('mongodb://localhost:27017/')
+        return client.licenses_db
 
-if not os.path.exists(LICENSE_FILE):
-    with open(LICENSE_FILE, 'w') as f:
-        json.dump([], f)
+# Veritabanı bağlantısını al
+db = get_db_connection()
+licenses_collection = db.licenses
 
 def generate_license_key(length=16):
     chars = string.ascii_uppercase + string.digits
@@ -114,11 +125,11 @@ TEMPLATE = '''
         {% for lic in licenses %}
           <tr>
             <td>{{ lic['username'] }}</td>
-            <td><code>{{ lic['key'] }}</code></td>
-            <td>{{ lic['expiry'] }}</td>
-            <td>{{ lic['created_at'] }}</td>
+            <td><code>{{ lic['license_key'] }}</code></td>
+            <td>{{ lic['expiry_days'] }}</td>
+            <td>{{ lic['created_at'].strftime('%Y-%m-%d') }}</td>
             <td>
-              <a href="{{ url_for('delete', key=lic['key']) }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');" title="Sil">
+              <a href="{{ url_for('delete', key=lic['license_key']) }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');" title="Sil">
                 Sil
               </a>
             </td>
@@ -172,8 +183,7 @@ def home():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    with open(LICENSE_FILE) as f:
-        licenses = json.load(f)
+    licenses = list(licenses_collection.find({}))
     return render_template_string(TEMPLATE, licenses=licenses)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -213,20 +223,13 @@ def create():
     except:
         expiry_days = 30
 
-    new_lic = {
+    license_data = {
         "username": username,
-        "key": key,
-        "expiry": expiry_days,
-        "created_at": datetime.utcnow().strftime("%Y-%m-%d")
+        "license_key": key,
+        "expiry_days": expiry_days,
+        "created_at": datetime.utcnow()
     }
-
-    with open(LICENSE_FILE) as f:
-        licenses = json.load(f)
-
-    licenses.append(new_lic)
-
-    with open(LICENSE_FILE, 'w') as f:
-        json.dump(licenses, f, indent=2)
+    licenses_collection.insert_one(license_data)
 
     flash(f"Lisans başarıyla oluşturuldu: {key}", "success")
     return redirect(url_for('home'))
@@ -236,13 +239,7 @@ def delete(key):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    with open(LICENSE_FILE) as f:
-        licenses = json.load(f)
-
-    licenses = [lic for lic in licenses if lic['key'] != key]
-
-    with open(LICENSE_FILE, 'w') as f:
-        json.dump(licenses, f, indent=2)
+    licenses_collection.delete_one({"license_key": key})
 
     flash("Lisans başarıyla silindi.", "warning")
     return redirect(url_for('home'))
@@ -264,18 +261,16 @@ def check_license():
     
     license_key = data['license_key'].strip().upper()
     
-    with open(LICENSE_FILE) as f:
-        licenses = json.load(f)
-    
-    for lic in licenses:
-        if lic['key'].upper() == license_key:
-            created = datetime.strptime(lic['created_at'], "%Y-%m-%d")
-            expiry_days = lic['expiry']
-            expiry_date = created + timedelta(days=expiry_days)
-            if datetime.utcnow() > expiry_date:
-                return {"status": "error", "message": "Lisans süresi dolmuş."}, 403
-            else:
-                return {"status": "success", "message": "Lisans geçerli.", "username": lic['username']}
+    lic = licenses_collection.find_one({"license_key": license_key})
+
+    if lic:
+        created = lic['created_at']
+        expiry_days = lic['expiry_days']
+        expiry_date = created + timedelta(days=expiry_days)
+        if datetime.utcnow() > expiry_date:
+            return {"status": "error", "message": "Lisans süresi dolmuş."}, 403
+        else:
+            return {"status": "success", "message": "Lisans geçerli.", "username": lic['username']}
     
     return {"status": "error", "message": "Lisans bulunamadı."}, 404
 
