@@ -305,7 +305,12 @@ def check_license():
         if datetime.utcnow().date() > expiry_date:
             return {"status": "error", "message": "Lisans süresi dolmuş."}, 403
         else:
-            return {"status": "success", "message": "Lisans geçerli.", "username": lic['username']}
+            return {
+                "status": "success",
+                "message": "Lisans geçerli.",
+                "username": lic['username'],
+                "expire_date": expiry_date.strftime("%Y-%m-%d")
+            }
     
     return {"status": "error", "message": "Lisans bulunamadı."}, 404
 
