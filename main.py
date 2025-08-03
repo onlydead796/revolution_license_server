@@ -247,3 +247,4 @@ def check_license():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT *
+
