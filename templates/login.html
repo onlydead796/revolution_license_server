@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Giriş Yap - Mert Panel</title>
     <style>
         body {
@@ -20,11 +21,12 @@
             background: rgba(255, 255, 255, 0.1);
             padding: 40px;
             border-radius: 15px;
-            box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba( 255, 255, 255, 0.18 );
+            border: 1px solid rgba(255, 255, 255, 0.18);
             width: 300px;
+            max-width: 90vw;
             animation: fadeIn 1s ease-in-out;
         }
 
@@ -46,6 +48,10 @@
             font-size: 14px;
         }
 
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
         input[type="submit"] {
             width: 100%;
             background-color: #6a82fb;
@@ -55,6 +61,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: 0.3s;
+            font-size: 16px;
         }
 
         input[type="submit"]:hover {
@@ -85,7 +92,7 @@
             </div>
           {% endif %}
         {% endwith %}
-        <input type="text" name="username" placeholder="Kullanıcı Adı" required>
+        <input type="text" name="username" placeholder="Kullanıcı Adı" required autofocus>
         <input type="password" name="password" placeholder="Şifre" required>
         <input type="submit" value="Giriş">
     </form>
