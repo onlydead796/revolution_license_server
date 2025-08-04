@@ -27,6 +27,7 @@ def init_db():
             username VARCHAR(100) NOT NULL,
             license_key VARCHAR(50) UNIQUE NOT NULL,
             expiry_days INTEGER NOT NULL,
+            start_date TIMESTAMP NOT NULL,
             created_at TIMESTAMP NOT NULL
         )
     ''')
@@ -57,7 +58,7 @@ def panel():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, username, license_key, expiry_days, created_at
+        SELECT id, username, license_key, expiry_days, start_date, created_at
         FROM licenses
         ORDER BY created_at ASC
     """)
@@ -66,16 +67,16 @@ def panel():
 
     licenses = []
     for row in rows:
-        created_at = row[4]
-        expiry_date = created_at + timedelta(days=row[3])
+        start_date = row[4]
+        expiry_date = start_date + timedelta(days=row[3])
         days_left = (expiry_date - datetime.utcnow()).days
 
         licenses.append({
             "id": row[0],
             "username": row[1],
             "key": row[2],
-            "created_at": created_at.strftime("%Y-%m-%d"),
-            "expiry_date": expiry_date.strftime("%Y-%m-%d"),
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),
             "days_left": max(days_left, 0)
         })
 
@@ -103,11 +104,12 @@ def add_license():
     except:
         days = 30
 
+    now = datetime.utcnow()
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO licenses (username, license_key, expiry_days, created_at) VALUES (%s, %s, %s, %s)",
-        (username, key, days, datetime.utcnow())
+        "INSERT INTO licenses (username, license_key, expiry_days, start_date, created_at) VALUES (%s, %s, %s, %s, %s)",
+        (username, key, days, now, now)
     )
     conn.commit()
     conn.close()
