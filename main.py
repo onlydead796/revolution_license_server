@@ -66,16 +66,17 @@ def panel():
 
     licenses = []
     for row in rows:
-        created_date = row[4].date() if isinstance(row[4], datetime) else row[4]
-        expiry_date = created_date + timedelta(days=row[3])
-        days_left = (expiry_date - datetime.utcnow().date()).days
+        created_at = row[4]
+        expiry_date = created_at + timedelta(days=row[3])
+        days_left = (expiry_date - datetime.utcnow()).days
 
         licenses.append({
             "id": row[0],
             "username": row[1],
             "key": row[2],
-            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),
-            "days_left": days_left if days_left >= 0 else 0
+            "created_at": created_at.strftime("%Y-%m-%d"),
+            "expiry_date": expiry_date.strftime("%Y-%m-%d"),
+            "days_left": max(days_left, 0)
         })
 
     return render_template("index.html", licenses=licenses)
