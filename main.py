@@ -1,70 +1,78 @@
 import os
-import psycopg2
-from flask import Flask, render_template, request, redirect, session, flash
+import random
+import string
 from datetime import datetime, timedelta
+from flask import Flask, request, render_template, redirect, session, flash, url_for
 from dotenv import load_dotenv
+import psycopg2
 
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("APP_SECRET_KEY")  # .env dosyasından okunacak
+app.secret_key = os.getenv("APP_SECRET")
 
-DB_URL = os.getenv("DB_URL")
-ADMIN_USER = os.getenv("ADMIN_USERNAME")
-ADMIN_PASS = os.getenv("ADMIN_PASSWORD")
+DB_URL = os.getenv("DATABASE_URL")
 
 def get_db():
     return psycopg2.connect(DB_URL)
 
+def generate_license_key(length=24):  # 6x4 grup
+    chars = string.ascii_uppercase + string.digits
+    return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(length // 4))
+
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        if username == ADMIN_USER and password == ADMIN_PASS:
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM admins WHERE username = %s AND license_key = %s", (username, password))
+        admin = cur.fetchone()
+        conn.close()
+
+        if admin:
             session["user"] = username
-            flash("Başarıyla giriş yapıldı.", "success")
             return redirect("/panel")
-        flash("Hatalı kullanıcı adı veya şifre", "danger")
-    return render_template("login.html")
+        else:
+            flash("Kullanıcı adı veya şifre hatalı", "danger")
+
+    return render_template("index.html")
 
 @app.route("/panel")
 def panel():
     if "user" not in session:
         return redirect("/")
+    
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, username, license_key, expiry_days, created_at FROM licenses ORDER BY created_at ASC")
-    rows = cur.fetchall()
+    cur.execute("SELECT * FROM licenses ORDER BY created_at DESC")
+    licenses = cur.fetchall()
     conn.close()
 
-    licenses = []
-    for row in rows:
-        created_date = row[4].date() if isinstance(row[4], datetime) else row[4]
-        expiry_date = created_date + timedelta(days=row[3])
-        days_left = (expiry_date - datetime.utcnow().date()).days
+    return render_template("panel.html", licenses=licenses)
 
-        licenses.append({
-            "id": row[0],
-            "username": row[1],
-            "license_key": row[2],
-            "expiry_date": expiry_date.strftime("%Y-%m-%d"),
-            "days_left": days_left if days_left >= 0 else 0
-        })
-
-    return render_template("index.html", licenses=licenses)
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
 
 @app.route("/add_license", methods=["POST"])
 def add_license():
     if "user" not in session:
         return redirect("/")
+
     username = request.form.get("username", "").strip()
     key = request.form.get("key", "").strip()
     days = request.form.get("days", "").strip()
 
-    if not username or not key:
-        flash("Kullanıcı adı ve lisans anahtarı boş olamaz.", "danger")
+    if not username:
+        flash("❌ Kullanıcı adı boş olamaz.", "danger")
         return redirect("/panel")
+
+    if not key:
+        key = generate_license_key()
 
     try:
         days = int(days)
@@ -81,23 +89,9 @@ def add_license():
     )
     conn.commit()
     conn.close()
-    flash("Lisans başarıyla eklendi.", "success")
+
+    flash("✅ Lisans başarıyla oluşturuldu.", "success")
     return redirect("/panel")
 
-@app.route("/delete_license/<int:id>")
-def delete_license(id):
-    if "user" not in session:
-        return redirect("/")
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM licenses WHERE id = %s", (id,))
-    conn.commit()
-    conn.close()
-    flash("Lisans silindi.", "warning")
-    return redirect("/panel")
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    flash("Başarıyla çıkış yapıldı.", "info")
-    return redirect("/")
+if __name__ == "__main__":
+    app.run(debug=True)
