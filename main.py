@@ -135,6 +135,39 @@ def logout():
     flash("👋 Başarıyla çıkış yapıldı.", "info")
     return redirect("/")
 
+# ✅ [EKLENDİ] Lisans süresi uzatma route'u
+@app.route("/extend_license/<int:id>", methods=["POST"])
+def extend_license(id):
+    if "user" not in session:
+        return redirect("/")
+
+    try:
+        extend_days = int(request.form.get("extend_days", "0"))
+        if extend_days <= 0:
+            flash("⚠️ Geçerli bir gün sayısı girin.", "danger")
+            return redirect("/panel")
+    except:
+        flash("⚠️ Gün sayısı sayısal olmalı.", "danger")
+        return redirect("/panel")
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT expiry_days FROM licenses WHERE id = %s", (id,))
+    row = cur.fetchone()
+    if not row:
+        flash("❌ Lisans bulunamadı.", "danger")
+        conn.close()
+        return redirect("/panel")
+
+    current_days = row[0]
+    new_days = current_days + extend_days
+    cur.execute("UPDATE licenses SET expiry_days = %s WHERE id = %s", (new_days, id))
+    conn.commit()
+    conn.close()
+
+    flash(f"✅ Lisans süresi {extend_days} gün uzatıldı.", "success")
+    return redirect("/panel")
+
 if __name__ == "__main__":
     init_db()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=True)
