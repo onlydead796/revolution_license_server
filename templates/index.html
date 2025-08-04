@@ -29,6 +29,14 @@
         code {
             color: #00ffc8;
         }
+        form.inline-form {
+            display: inline-block;
+            margin: 0;
+        }
+        input.days-input {
+            width: 70px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -68,9 +76,9 @@
                 <tr>
                     <th>👤 Kullanıcı</th>
                     <th>🔑 Anahtar</th>
-                    <th>📅 Başlangıç</th>
                     <th>📆 Bitiş</th>
                     <th>⏰ Geri Sayım</th>
+                    <th>🛠️ İşlemler</th>
                     <th>🗑️ Sil</th>
                 </tr>
             </thead>
@@ -78,11 +86,19 @@
                 {% for lic in licenses %}
                 <tr class="{% if lic.days_left <= 0 %}expired{% elif lic.days_left <= 3 %}warning{% endif %}">
                     <td>{{ lic.username }}</td>
-                    <td><code>{{ lic.license_key }}</code></td>
-                    <td>{{ lic.start_date }}</td>
+                    <td><code>{{ lic.key }}</code></td>
                     <td>{{ lic.expiry_date }}</td>
                     <td>
                         <span id="countdown-{{ lic.id }}" data-expire="{{ lic.expiry_date }}"></span>
+                    </td>
+                    <td>
+                        <form action="/renew_license/{{ lic.id }}" method="POST" class="inline-form">
+                            <input type="number" name="days" min="1" max="3650" placeholder="Gün" required class="days-input" />
+                            <button type="submit" class="btn btn-primary btn-sm">Yenile</button>
+                        </form>
+                        <form action="/deactivate_license/{{ lic.id }}" method="POST" class="inline-form ms-2">
+                            <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Lisansı pasif yapmak istediğinize emin misiniz?');">Pasif Yap</button>
+                        </form>
                     </td>
                     <td>
                         <a href="/delete_license/{{ lic.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');">
