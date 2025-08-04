@@ -70,7 +70,7 @@ def panel():
             "id": row[0],
             "username": row[1],
             "key": row[2],
-            "expiry_date": expiry_date.strftime("%Y-%m-%dT23:59:59"),  # Gün sonu olarak ayarlandı
+            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),  # Gün sonu olarak ayarlandı
             "days_left": days_left if days_left >= 0 else 0
         })
 
