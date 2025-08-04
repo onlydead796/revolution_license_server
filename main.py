@@ -69,8 +69,8 @@ def panel():
         licenses.append({
             "id": row[0],
             "username": row[1],
-            "key": row[2],  # Burada 'key' olarak değiştirildi ki index.html uyumlu olsun
-            "expiry_date": expiry_date.strftime("%Y-%m-%d"),
+            "key": row[2],
+            "expiry_date": expiry_date.strftime("%Y-%m-%dT23:59:59"),  # Gün sonu olarak ayarlandı
             "days_left": days_left if days_left >= 0 else 0
         })
 
