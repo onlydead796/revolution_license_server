@@ -5,7 +5,6 @@ import psycopg2
 from flask import Flask, render_template, request, redirect, session, flash
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-import pytz
 
 load_dotenv()
 
@@ -28,8 +27,8 @@ def init_db():
             username VARCHAR(100) NOT NULL,
             license_key VARCHAR(50) UNIQUE NOT NULL,
             expiry_days INTEGER NOT NULL,
-            start_date TIMESTAMP WITH TIME ZONE NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE NOT NULL
+            start_date TIMESTAMP NOT NULL,
+            created_at TIMESTAMP NOT NULL
         )
     ''')
     conn.commit()
@@ -56,7 +55,6 @@ def login():
 def panel():
     if "user" not in session:
         return redirect("/")
-    
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -67,24 +65,19 @@ def panel():
     rows = cur.fetchall()
     conn.close()
 
-    turkey_timezone = pytz.timezone('Europe/Istanbul')
-
     licenses = []
     for row in rows:
-        start_date_utc = row[4]
-        start_date_local = start_date_utc.astimezone(turkey_timezone)
-        
-        expiry_date_utc = start_date_utc + timedelta(days=row[3])
-        expiry_date_local = expiry_date_utc.astimezone(turkey_timezone).replace(hour=23, minute=59, second=59, microsecond=0)
-        
-        days_left = (expiry_date_utc - datetime.now(pytz.utc)).days
+        start_date = row[4]
+        expiry_date = start_date + timedelta(days=row[3])
+        expiry_date = expiry_date.replace(hour=23, minute=59, second=59, microsecond=0)
+        days_left = (expiry_date - datetime.utcnow()).days
 
         licenses.append({
             "id": row[0],
             "username": row[1],
             "key": row[2],
-            "start_date": start_date_local.strftime("%Y-%m-%d %H:%M:%S"),
-            "expiry_date": expiry_date_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_date": start_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "expiry_date": expiry_date.strftime("%Y-%m-%d %H:%M:%S"),
             "days_left": max(days_left, 0)
         })
 
@@ -109,10 +102,10 @@ def add_license():
         days = int(days)
         if days < 1:
             days = 30
-    except ValueError:
+    except:
         days = 30
 
-    now = datetime.now(pytz.utc)
+    now = datetime.utcnow()
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
