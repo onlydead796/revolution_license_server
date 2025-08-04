@@ -94,8 +94,8 @@
                         <span id="countdown-{{ lic.id }}" data-expire="{{ lic.expiry_date }}"></span>
                     </td>
                     <td>
-                        <form action="/renew_license/{{ lic.id }}" method="POST" class="inline-form">
-                            <input type="number" name="days" min="1" max="3650" placeholder="Gün" required class="days-input" />
+                        <form action="/extend_license/{{ lic.id }}" method="POST" class="inline-form">
+                            <input type="number" name="extend_days" min="1" max="3650" placeholder="Gün" required class="days-input" />
                             <button type="submit" class="btn btn-primary btn-sm">Yenile</button>
                         </form>
                     </td>
