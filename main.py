@@ -1,4 +1,6 @@
 import os
+import string
+import random
 import psycopg2
 from flask import Flask, render_template, request, redirect, session, flash
 from datetime import datetime, timedelta
@@ -7,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("APP_SECRET_KEY")  # .env dosyasından okunacak
+app.secret_key = os.getenv("APP_SECRET_KEY")
 
 DB_URL = os.getenv("DB_URL")
 ADMIN_USER = os.getenv("ADMIN_USERNAME")
@@ -16,6 +18,10 @@ ADMIN_PASS = os.getenv("ADMIN_PASSWORD")
 def get_db():
     return psycopg2.connect(DB_URL)
 
+def generate_license_key():
+    chars = string.ascii_uppercase + string.digits
+    return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(6))
+
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -23,9 +29,9 @@ def login():
         password = request.form["password"]
         if username == ADMIN_USER and password == ADMIN_PASS:
             session["user"] = username
-            flash("Başarıyla giriş yapıldı.", "success")
+            flash("✅ Başarıyla giriş yapıldı.", "success")
             return redirect("/panel")
-        flash("Hatalı kullanıcı adı veya şifre", "danger")
+        flash("❌ Hatalı kullanıcı adı veya şifre", "danger")
     return render_template("login.html")
 
 @app.route("/panel")
@@ -62,9 +68,12 @@ def add_license():
     key = request.form.get("key", "").strip()
     days = request.form.get("days", "").strip()
 
-    if not username or not key:
-        flash("Kullanıcı adı ve lisans anahtarı boş olamaz.", "danger")
+    if not username:
+        flash("⚠️ Kullanıcı adı boş olamaz.", "danger")
         return redirect("/panel")
+
+    if not key:
+        key = generate_license_key()
 
     try:
         days = int(days)
@@ -81,7 +90,7 @@ def add_license():
     )
     conn.commit()
     conn.close()
-    flash("Lisans başarıyla eklendi.", "success")
+    flash(f"✅ Lisans başarıyla eklendi: {key}", "success")
     return redirect("/panel")
 
 @app.route("/delete_license/<int:id>")
@@ -93,11 +102,11 @@ def delete_license(id):
     cur.execute("DELETE FROM licenses WHERE id = %s", (id,))
     conn.commit()
     conn.close()
-    flash("Lisans silindi.", "warning")
+    flash("🗑️ Lisans silindi.", "warning")
     return redirect("/panel")
 
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("Başarıyla çıkış yapıldı.", "info")
+    flash("👋 Başarıyla çıkış yapıldı.", "info")
     return redirect("/")
