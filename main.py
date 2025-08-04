@@ -18,6 +18,22 @@ ADMIN_PASS = os.getenv("ADMIN_PASSWORD")
 def get_db():
     return psycopg2.connect(DB_URL)
 
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS licenses (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) NOT NULL,
+            license_key VARCHAR(50) UNIQUE NOT NULL,
+            expiry_days INTEGER NOT NULL,
+            created_at TIMESTAMP NOT NULL
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
+
 def generate_license_key():
     chars = string.ascii_uppercase + string.digits
     return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(6))
@@ -53,7 +69,7 @@ def panel():
         licenses.append({
             "id": row[0],
             "username": row[1],
-            "license_key": row[2],
+            "key": row[2],  # Burada 'key' olarak değiştirildi ki index.html uyumlu olsun
             "expiry_date": expiry_date.strftime("%Y-%m-%d"),
             "days_left": days_left if days_left >= 0 else 0
         })
@@ -110,3 +126,7 @@ def logout():
     session.clear()
     flash("👋 Başarıyla çıkış yapıldı.", "info")
     return redirect("/")
+
+if __name__ == "__main__":
+    init_db()
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=True)
