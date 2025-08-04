@@ -1,10 +1,11 @@
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+from dotenv import load_dotenv
 import random
 import string
-from datetime import datetime, timedelta
-from flask import Flask, request, render_template, redirect, session, flash, url_for
-from dotenv import load_dotenv
-import psycopg2
 
 load_dotenv()
 
@@ -14,84 +15,91 @@ app.secret_key = os.getenv("APP_SECRET")
 DB_URL = os.getenv("DATABASE_URL")
 
 def get_db():
-    return psycopg2.connect(DB_URL)
+    conn = psycopg2.connect(DB_URL, cursor_factory=RealDictCursor)
+    return conn
 
-def generate_license_key(length=24):  # 6x4 grup
+def generate_license_key(length=24):
     chars = string.ascii_uppercase + string.digits
-    return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(length // 4))
+    return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(6))
 
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM admins WHERE username = %s AND license_key = %s", (username, password))
-        admin = cur.fetchone()
-        conn.close()
-
-        if admin:
-            session["user"] = username
-            return redirect("/panel")
+        if username == "admin" and password == "123":
+            session["logged_in"] = True
+            return redirect(url_for("panel"))
         else:
             flash("Kullanıcı adı veya şifre hatalı", "danger")
-
     return render_template("index.html")
 
 @app.route("/panel")
 def panel():
-    if "user" not in session:
-        return redirect("/")
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
     
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM licenses ORDER BY created_at DESC")
+    cur.execute("SELECT * FROM licenses ORDER BY id DESC")
     licenses = cur.fetchall()
+    cur.close()
     conn.close()
 
+    now = datetime.now()
+    for license in licenses:
+        created = license['created_at']
+        expiry = created + timedelta(days=license['expiry_days'])
+        remaining = expiry - now
+        license["expires_at"] = expiry.strftime("%Y-%m-%d %H:%M:%S")
+        license["remaining_seconds"] = int(remaining.total_seconds())
+    
     return render_template("panel.html", licenses=licenses)
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
 
 @app.route("/add_license", methods=["POST"])
 def add_license():
-    if "user" not in session:
-        return redirect("/")
-
-    username = request.form.get("username", "").strip()
-    key = request.form.get("key", "").strip()
-    days = request.form.get("days", "").strip()
-
-    if not username:
-        flash("❌ Kullanıcı adı boş olamaz.", "danger")
-        return redirect("/panel")
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    
+    username = request.form.get("username")
+    key = request.form.get("key")
+    days = int(request.form.get("days") or 30)
 
     if not key:
         key = generate_license_key()
 
-    try:
-        days = int(days)
-        if days < 1:
-            days = 30
-    except:
-        days = 30
-
     conn = get_db()
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO licenses (username, license_key, expiry_days, created_at) VALUES (%s, %s, %s, %s)",
-        (username, key, days, datetime.utcnow())
-    )
+    cur.execute("""
+        INSERT INTO licenses (username, license_key, expiry_days, created_at)
+        VALUES (%s, %s, %s, NOW())
+    """, (username, key, days))
     conn.commit()
+    cur.close()
     conn.close()
 
-    flash("✅ Lisans başarıyla oluşturuldu.", "success")
-    return redirect("/panel")
+    flash("Lisans başarıyla eklendi", "success")
+    return redirect(url_for("panel"))
+
+@app.route("/delete_license/<int:id>")
+def delete_license(id):
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM licenses WHERE id = %s", (id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Lisans silindi", "info")
+    return redirect(url_for("panel"))
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 if __name__ == "__main__":
     app.run(debug=True)
