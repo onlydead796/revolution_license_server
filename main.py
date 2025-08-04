@@ -6,11 +6,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
-app.secret_key = os.getenv("APP_SECRET")
+app.secret_key = os.getenv("APP_SECRET_KEY")
 
 DB_URL = os.getenv("DB_URL")
-ADMIN_USER = os.getenv("ADMIN_USER")
-ADMIN_PASS = os.getenv("ADMIN_PASS")
+ADMIN_USER = os.getenv("ADMIN_USERNAME")
+ADMIN_PASS = os.getenv("ADMIN_PASSWORD")
 
 def get_db():
     return psycopg2.connect(DB_URL)
