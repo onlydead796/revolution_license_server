@@ -32,7 +32,7 @@ def panel():
         return redirect("/")
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, key, expire_date FROM licenses ORDER BY expire_date ASC")
+    cur.execute("SELECT id, license_key, expire_date FROM licenses ORDER BY expire_date ASC")
     rows = cur.fetchall()
     conn.close()
 
