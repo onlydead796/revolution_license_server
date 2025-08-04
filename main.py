@@ -1,4 +1,4 @@
-Main dosyam import os
+import os
 import string
 import random
 import psycopg2
