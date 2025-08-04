@@ -105,7 +105,7 @@ def add_license():
     except:
         days = 30
 
-    now = datetime.utcnow()
+    now = datetime.utcnow() + timedelta(hours=3)
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
