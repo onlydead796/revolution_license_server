@@ -75,7 +75,6 @@ def panel():
         start_date_local = start_date_utc.astimezone(turkey_timezone)
         
         expiry_date_utc = start_date_utc + timedelta(days=row[3])
-    
         expiry_date_local = expiry_date_utc.astimezone(turkey_timezone).replace(hour=23, minute=59, second=59, microsecond=0)
         
         days_left = (expiry_date_utc - datetime.now(pytz.utc)).days
@@ -112,7 +111,7 @@ def add_license():
             days = 30
     except ValueError:
         days = 30
-        
+
     now = datetime.now(pytz.utc)
     conn = get_db()
     cur = conn.cursor()
