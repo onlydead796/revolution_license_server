@@ -62,15 +62,18 @@ def panel():
 
     licenses = []
     for row in rows:
-        created_date = row[4].date() if isinstance(row[4], datetime) else row[4]
+        created_date = row[4] if isinstance(row[4], datetime) else datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S")
         expiry_date = created_date + timedelta(days=row[3])
-        days_left = (expiry_date - datetime.utcnow().date()).days
+        # expiry_date'yi gün sonu (23:59:59) olarak ayarlıyoruz:
+        expiry_date = expiry_date.replace(hour=23, minute=59, second=59, microsecond=0)
+        days_left = (expiry_date - datetime.utcnow()).days
 
         licenses.append({
             "id": row[0],
             "username": row[1],
-            "key": row[2],
-            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),  # Gün sonu olarak ayarlandı
+            "license_key": row[2],    # HTML'deki isimle uyumlu
+            "start_date": created_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "expiry_date": expiry_date.strftime("%Y-%m-%d %H:%M:%S"),
             "days_left": days_left if days_left >= 0 else 0
         })
 
