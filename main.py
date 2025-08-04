@@ -27,8 +27,7 @@ def init_db():
             username VARCHAR(100) NOT NULL,
             license_key VARCHAR(50) UNIQUE NOT NULL,
             expiry_days INTEGER NOT NULL,
-            created_at TIMESTAMP NOT NULL,
-            is_active BOOLEAN DEFAULT TRUE
+            created_at TIMESTAMP NOT NULL
         )
     ''')
     conn.commit()
@@ -60,7 +59,6 @@ def panel():
     cur.execute("""
         SELECT id, username, license_key, expiry_days, created_at
         FROM licenses
-        WHERE is_active = TRUE
         ORDER BY created_at ASC
     """)
     rows = cur.fetchall()
@@ -76,7 +74,7 @@ def panel():
             "id": row[0],
             "username": row[1],
             "key": row[2],
-            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),  # Gün sonu olarak ayarlandı
+            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),
             "days_left": days_left if days_left >= 0 else 0
         })
 
@@ -113,40 +111,6 @@ def add_license():
     conn.commit()
     conn.close()
     flash(f"✅ Lisans başarıyla eklendi: {key}", "success")
-    return redirect("/panel")
-
-@app.route("/renew_license/<int:id>", methods=["POST"])
-def renew_license(id):
-    if "user" not in session:
-        return redirect("/")
-    days = request.form.get("days", "").strip()
-    try:
-        days = int(days)
-        if days < 1:
-            flash("⚠️ Gün sayısı 1'den küçük olamaz.", "danger")
-            return redirect("/panel")
-    except:
-        flash("⚠️ Geçersiz gün sayısı.", "danger")
-        return redirect("/panel")
-
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE licenses SET expiry_days = expiry_days + %s WHERE id = %s AND is_active = TRUE", (days, id))
-    conn.commit()
-    conn.close()
-    flash(f"✅ Lisans {days} gün yenilendi.", "success")
-    return redirect("/panel")
-
-@app.route("/deactivate_license/<int:id>", methods=["POST"])
-def deactivate_license(id):
-    if "user" not in session:
-        return redirect("/")
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE licenses SET is_active = FALSE WHERE id = %s", (id,))
-    conn.commit()
-    conn.close()
-    flash("⚠️ Lisans pasif yapıldı.", "warning")
     return redirect("/panel")
 
 @app.route("/delete_license/<int:id>")
