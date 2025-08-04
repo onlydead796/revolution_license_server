@@ -3,7 +3,7 @@ import string
 import random
 import psycopg2
 from flask import Flask, render_template, request, redirect, session, flash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -60,21 +60,25 @@ def panel():
     rows = cur.fetchall()
     conn.close()
 
+    # Türkiye için UTC+3 saat dilimi objesi
+    local_timezone = timezone(timedelta(hours=3))
+
     licenses = []
     for row in rows:
-        created_date = row[4] if isinstance(row[4], datetime) else datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S")
+        created_utc = row[4]
+        # created_at'ı UTC'den Türkiye saatine çevir
+        created_local = created_utc.replace(tzinfo=timezone.utc).astimezone(local_timezone)
+
+        created_date = created_local.date()
         expiry_date = created_date + timedelta(days=row[3])
-        # expiry_date'yi gün sonu (23:59:59) olarak ayarlıyoruz:
-        expiry_date = expiry_date.replace(hour=23, minute=59, second=59, microsecond=0)
-        days_left = (expiry_date - datetime.utcnow()).days
 
         licenses.append({
             "id": row[0],
             "username": row[1],
-            "license_key": row[2],    # HTML'deki isimle uyumlu
-            "start_date": created_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "expiry_date": expiry_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "days_left": days_left if days_left >= 0 else 0
+            "key": row[2],
+            "start_date": created_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),
+            "days_left": max((expiry_date - datetime.utcnow().date()).days, 0)
         })
 
     return render_template("index.html", licenses=licenses)
