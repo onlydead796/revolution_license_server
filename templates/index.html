@@ -13,11 +13,11 @@
             padding: 20px;
         }
         .expired {
-            background-color: #dc3545 !important; /* kırmızı */
+            background-color: #dc3545 !important;
             color: white;
         }
         .warning {
-            background-color: #ffc107 !important; /* sarı */
+            background-color: #ffc107 !important;
             color: black;
         }
         .logout {
@@ -26,12 +26,15 @@
             margin-top: 20px;
             display: inline-block;
         }
+        code {
+            color: #00ffc8;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 class="mb-4 text-center">Revolution Lisans Paneli</h2>
+    <h2 class="mb-4 text-center">⚙️ Revolution Lisans Paneli</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -45,17 +48,14 @@
     {% endwith %}
 
     <form action="/add_license" method="POST" class="row g-3 mb-4 justify-content-center">
-        <div class="col-md-4 col-12">
-            <input type="email" name="email" class="form-control form-control-lg" placeholder="Email" required />
+        <div class="col-md-6 col-12">
+            <input type="text" name="key" class="form-control form-control-lg" placeholder="🔑 Lisans Anahtarı" required />
         </div>
-        <div class="col-md-4 col-12">
-            <input type="text" name="key" class="form-control form-control-lg" placeholder="Lisans Anahtarı" required />
+        <div class="col-md-3 col-6">
+            <input type="number" name="days" class="form-control form-control-lg" placeholder="📅 Kaç Günlük" required min="1" max="3650" />
         </div>
-        <div class="col-md-2 col-6">
-            <input type="number" name="days" class="form-control form-control-lg" placeholder="Kaç Günlük" required min="1" max="3650" />
-        </div>
-        <div class="col-md-2 col-6 d-grid">
-            <button type="submit" class="btn btn-success btn-lg">Lisans Ekle</button>
+        <div class="col-md-3 col-6 d-grid">
+            <button type="submit" class="btn btn-success btn-lg">✅ Lisans Ekle</button>
         </div>
     </form>
 
@@ -63,22 +63,24 @@
         <table class="table table-striped table-dark align-middle text-center">
             <thead>
                 <tr>
-                    <th>Email</th>
-                    <th>Lisans Anahtarı</th>
-                    <th>Bitiş Tarihi</th>
-                    <th>Kalan Gün</th>
-                    <th>Sil</th>
+                    <th>👤 Kullanıcı</th>
+                    <th>🔑 Anahtar</th>
+                    <th>📆 Bitiş</th>
+                    <th>⏰ Geri Sayım</th>
+                    <th>🗑️ Sil</th>
                 </tr>
             </thead>
             <tbody>
                 {% for lic in licenses %}
                 <tr class="{% if lic.days_left <= 0 %}expired{% elif lic.days_left <= 3 %}warning{% endif %}">
-                    <td>{{ lic.email }}</td>
+                    <td>{{ lic.username }}</td>
                     <td><code>{{ lic.key }}</code></td>
                     <td>{{ lic.expire_date }}</td>
-                    <td>{{ lic.days_left }}</td>
                     <td>
-                        <a href="/delete_license/{{ lic.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');" title="Sil">
+                        <span id="countdown-{{ lic.id }}" data-expire="{{ lic.expire_date }}"></span>
+                    </td>
+                    <td>
+                        <a href="/delete_license/{{ lic.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');">
                             🗑️
                         </a>
                     </td>
@@ -88,9 +90,41 @@
         </table>
     </div>
 
-    <a href="/logout" class="logout btn btn-outline-light">Çıkış Yap</a>
+    <a href="/logout" class="logout btn btn-outline-light">🚪 Çıkış Yap</a>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Canlı geri sayım başlat
+document.addEventListener("DOMContentLoaded", function () {
+    const countdownElements = document.querySelectorAll("span[id^='countdown-']");
+    countdownElements.forEach(el => {
+        const expireDateStr = el.dataset.expire.replace(" ", "T"); // tarih: 2025-08-04 14:20:00
+        const expireTime = new Date(expireDateStr).getTime();
+
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const distance = expireTime - now;
+
+            if (distance <= 0) {
+                el.innerHTML = "<span class='text-danger'>❌ Süresi doldu</span>";
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            el.innerHTML = `⏳ ${days}g ${hours}s ${minutes}d ${seconds}s`;
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    });
+});
+</script>
+
 </body>
 </html>
