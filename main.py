@@ -69,14 +69,16 @@ def panel():
     for row in rows:
         start_date = row[4]
         expiry_date = start_date + timedelta(days=row[3])
+        # Bitis tarihini gün sonunda yapıyoruz
+        expiry_date = expiry_date.replace(hour=23, minute=59, second=59)
         days_left = (expiry_date - datetime.utcnow()).days
 
         licenses.append({
             "id": row[0],
             "username": row[1],
             "key": row[2],
-            "start_date": start_date.strftime("%Y-%m-%d"),
-            "expiry_date": expiry_date.strftime("%Y-%m-%d 23:59:59"),
+            "start_date": start_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "expiry_date": expiry_date.strftime("%Y-%m-%d %H:%M:%S"),
             "days_left": max(days_left, 0)
         })
 
