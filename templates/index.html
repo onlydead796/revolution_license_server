@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Revolution Lisans Paneli</title>
+    <title>⚙️ Revolution Lisans Paneli</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
         body {
@@ -48,13 +48,16 @@
     {% endwith %}
 
     <form action="/add_license" method="POST" class="row g-3 mb-4 justify-content-center">
-        <div class="col-md-6 col-12">
-            <input type="text" name="key" class="form-control form-control-lg" placeholder="🔑 Lisans Anahtarı" required />
+        <div class="col-md-3 col-12">
+            <input type="text" name="username" class="form-control form-control-lg" placeholder="👤 Kullanıcı Adı" required />
         </div>
-        <div class="col-md-3 col-6">
-            <input type="number" name="days" class="form-control form-control-lg" placeholder="📅 Kaç Günlük" required min="1" max="3650" />
+        <div class="col-md-3 col-12">
+            <input type="text" name="key" class="form-control form-control-lg" placeholder="🔑 Lisans Anahtarı (Opsiyonel)" />
         </div>
-        <div class="col-md-3 col-6 d-grid">
+        <div class="col-md-2 col-6">
+            <input type="number" name="days" class="form-control form-control-lg" placeholder="📅 Gün Sayısı" min="1" max="3650" />
+        </div>
+        <div class="col-md-2 col-6 d-grid">
             <button type="submit" class="btn btn-success btn-lg">✅ Lisans Ekle</button>
         </div>
     </form>
@@ -96,11 +99,11 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-// Canlı geri sayım başlat
+// Canlı geri sayım
 document.addEventListener("DOMContentLoaded", function () {
     const countdownElements = document.querySelectorAll("span[id^='countdown-']");
     countdownElements.forEach(el => {
-        const expireDateStr = el.dataset.expire.replace(" ", "T"); // tarih: 2025-08-04 14:20:00
+        const expireDateStr = el.dataset.expire.replace(" ", "T");
         const expireTime = new Date(expireDateStr).getTime();
 
         function updateCountdown() {
