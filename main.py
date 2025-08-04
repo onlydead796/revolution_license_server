@@ -32,7 +32,7 @@ def panel():
         return redirect("/")
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, email, key, expire_date FROM licenses ORDER BY expire_date ASC")
+    cur.execute("SELECT id, key, expire_date FROM licenses ORDER BY expire_date ASC")
     rows = cur.fetchall()
     conn.close()
 
@@ -41,7 +41,6 @@ def panel():
         days_left = (row[3] - datetime.today().date()).days
         licenses.append({
             "id": row[0],
-            "email": row[1],
             "key": row[2],
             "expire_date": row[3].strftime("%Y-%m-%d"),
             "days_left": days_left
@@ -53,7 +52,6 @@ def panel():
 def add_license():
     if "user" not in session:
         return redirect("/")
-    email = request.form["email"]
     key = request.form["key"]
     days = request.form["days"]
     try:
@@ -66,7 +64,7 @@ def add_license():
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("INSERT INTO licenses (email, key, expire_date) VALUES (%s, %s, %s)", (email, key, expire_date))
+    cur.execute("INSERT INTO licenses (key, expire_date) VALUES (%s, %s, %s)", (key, expire_date))
     conn.commit()
     conn.close()
     flash("Lisans başarıyla eklendi.", "success")
