@@ -1,0 +1,118 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #121212;
+    color: #eee;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.login-container, .panel-container {
+    background: #1e1e1e;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    animation: fadeIn 0.7s ease-in-out;
+    width: 90%;
+    max-width: 650px;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+form input, form button {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+form input {
+    background: #2b2b2b;
+    color: #eee;
+}
+
+form button {
+    background: #4caf50;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+form button:hover {
+    background: #45a049;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid #333;
+    text-align: center;
+}
+
+.expired {
+    background-color: #a00000;
+    color: #fff;
+    font-weight: bold;
+}
+
+.warning {
+    background-color: #a06700;
+    color: #fff;
+    font-weight: bold;
+}
+
+.logout {
+    display: block;
+    margin-top: 25px;
+    color: #ff5c5c;
+    text-align: center;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.flash-message {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.flash-message.success {
+    background-color: #4caf50;
+    color: white;
+}
+
+.flash-message.danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.flash-message.warning {
+    background-color: #ff9800;
+    color: white;
+}
+
+.flash-message.info {
+    background-color: #2196f3;
+    color: white;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
