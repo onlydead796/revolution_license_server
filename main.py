@@ -1,3 +1,5 @@
+Tabii Mert, senin verdiğin kodla admin paneli çalışan ve tam HTML içeren versiyonu birleştirip düzenledim. Aşağıda tüm dosya olarak hazır halde görebilirsin:
+
 import os
 import json
 import random
@@ -51,8 +53,139 @@ def generate_license_key(length=16):
     chars = string.ascii_uppercase + string.digits
     return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(length // 4))
 
-TEMPLATE = ''' 
-<!-- Aynı HTML içeriğin buraya aynen gelecek --> 
+TEMPLATE = '''
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Paneli - Lisans Yönetimi</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/a2e1e6d3c2.js" crossorigin="anonymous"></script>
+  <style>
+    body { background-color: #121212; color: #eee; }
+    .table { color: #eee; }
+    .login-container {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #333;
+    }
+    .login-form {
+      width: 100%;
+      max-width: 400px;
+      padding: 30px;
+      background-color: #333;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.7);
+      color: white;
+    }
+  </style>
+</head>
+<body class="{% if session.get('logged_in') %}admin{% else %}bg-dark text-light{% endif %}">
+
+{% if session.get('logged_in') %}
+  <div class="container py-4">
+    <h1 class="mb-4 text-center"><i class="fas fa-cogs me-2"></i>Admin Panel</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+      <a href="{{ url_for('logout') }}" class="btn btn-danger"><i class="fas fa-sign-out-alt me-1"></i> Çıkış Yap</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('create') }}" class="row g-3 mb-4">
+      <div class="col-md-4">
+        <input type="text" name="username" class="form-control" placeholder="Kullanıcı Adı" required>
+      </div>
+      <div class="col-md-4">
+        <input type="text" name="key" class="form-control" placeholder="Lisans Anahtarı (Boş bırakılırsa otomatik oluşturulur)">
+      </div>
+      <div class="col-md-2">
+        <input type="number" name="expiry" class="form-control" placeholder="Süre (gün)" required min="1" max="3650" value="30">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus-circle me-1"></i> Lisans Kaydet</button>
+      </div>
+    </form>
+
+    <h3>Mevcut Lisanslar</h3>
+    {% if licenses %}
+      <table class="table table-striped table-dark table-hover align-middle text-center">
+        <thead>
+          <tr>
+            <th>Kullanıcı Adı</th>
+            <th>Lisans Anahtarı</th>
+            <th>Süre (gün)</th>
+            <th>Oluşturulma Tarihi</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lic in licenses %}
+            <tr>
+              <td>{{ lic['username'] }}</td>
+              <td><code>{{ lic['license_key'] }}</code></td>
+              <td>{{ lic['expiry_days'] }}</td>
+              <td>{{ lic['created_at'] }}</td>
+              <td>
+                <a href="{{ url_for('delete', key=lic['license_key']) }}" class="btn btn-danger btn-sm" onclick="return confirm('Lisansı silmek istediğinize emin misiniz?');" title="Sil">
+                  Sil
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-center">Henüz lisans eklenmemiş.</p>
+    {% endif %}
+  </div>
+
+{% else %}
+  <div class="login-container">
+    <div class="login-form">
+      <h1 class="mb-4 text-center"><i class="fas fa-cogs me-2"></i>Admin Panel Giriş</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}">
+        <div class="mb-3">
+          <input type="text" name="username" class="form-control" placeholder="Kullanıcı Adı" required autofocus>
+        </div>
+        <div class="mb-3">
+          <input type="password" name="password" class="form-control" placeholder="Şifre" required>
+        </div>
+        <div class="d-grid gap-2">
+          <button type="submit" class="btn btn-primary">Giriş Yap</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
 '''
 
 @app.route('/', methods=['GET'])
@@ -74,7 +207,6 @@ def login():
         username = request.form['username']
         password = request.form['password']
 
-        # Default olarak .env yoksa admin/adminpassword kullanılır
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
         admin_password = os.getenv('ADMIN_PASSWORD', 'adminpassword')
 
@@ -109,7 +241,7 @@ def create():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO licenses (username, license_key, expiry_days, created_at) VALUES (%s, %s, %s, %s)",
-                (username, key, expiry_days, datetime.utcnow()))
+                (username, key, expiry_days, datetime.utcnow().date()))
     conn.commit()
     cur.close()
     conn.close()
@@ -167,8 +299,4 @@ def check_license():
                 "expire_date": expiry_date.strftime("%Y-%m-%d")
             }
     
-    return {"status": "error", "message": "Lisans bulunamadı."}, 404
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), debug=True)
+    return {"status": "error", "
