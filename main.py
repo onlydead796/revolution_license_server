@@ -186,22 +186,30 @@ def api_check_license():
     conn = get_db()
     cur = conn.cursor()
     
-    # hem kullanıcı adı hem lisans anahtarı eşleşmeli
-    cur.execute(
-        "SELECT username, license_key, start_date, expiry_days FROM licenses WHERE username = %s AND license_key = %s", 
-        (username, license_key)
-    )
-    row = cur.fetchone()
-    conn.close()
-
-    if not row:
+    # Önce kullanıcı adını kontrol et
+    cur.execute("SELECT username, license_key, start_date, expiry_days FROM licenses WHERE username = %s", (username,))
+    user_row = cur.fetchone()
+    
+    if not user_row:
+        conn.close()
         return jsonify({
             "success": False,
             "status": "error", 
-            "message": "Kullanıcı adı veya lisans anahtarı hatalı"
+            "message": "Kullanıcı adı hatalı"
         }), 404
-
-    db_username, db_license_key, start_date, expiry_days = row
+    
+    # Kullanıcı var, şimdi lisans anahtarını kontrol et
+    db_username, db_license_key, start_date, expiry_days = user_row
+    
+    if db_license_key != license_key:
+        conn.close()
+        return jsonify({
+            "success": False,
+            "status": "error", 
+            "message": "Lisans anahtarı hatalı"
+        }), 404
+    
+    conn.close()
     expiry_date = start_date + timedelta(days=expiry_days)
     expiry_date = expiry_date.replace(hour=23, minute=59, second=59, microsecond=0)
     days_left = max((expiry_date - datetime.utcnow()).days, 0)
