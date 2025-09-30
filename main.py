@@ -172,36 +172,58 @@ def extend_license(id):
 @app.route("/panel/api/check_license", methods=["POST"])
 def api_check_license():
     data = request.get_json()
+    username = data.get("username", "").strip()
     license_key = data.get("license_key", "").strip()
 
-    if not license_key:
-        return jsonify({"status": "error", "message": "Lisans anahtarı gerekli"}), 400
+    # Kullanıcı adı ve lisans anahtarı kontrolü
+    if not username or not license_key:
+        return jsonify({
+            "success": False,
+            "status": "error", 
+            "message": "Kullanıcı adı ve lisans anahtarı gerekli"
+        }), 400
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT username, start_date, expiry_days FROM licenses WHERE license_key = %s", (license_key,))
+    
+    # hem kullanıcı adı hem lisans anahtarı eşleşmeli
+    cur.execute(
+        "SELECT username, license_key, start_date, expiry_days FROM licenses WHERE username = %s AND license_key = %s", 
+        (username, license_key)
+    )
     row = cur.fetchone()
     conn.close()
 
     if not row:
-        return jsonify({"status": "error", "message": "Lisans bulunamadı"}), 404
+        return jsonify({
+            "success": False,
+            "status": "error", 
+            "message": "Kullanıcı adı veya lisans anahtarı hatalı"
+        }), 404
 
-    username, start_date, expiry_days = row
+    db_username, db_license_key, start_date, expiry_days = row
     expiry_date = start_date + timedelta(days=expiry_days)
+    expiry_date = expiry_date.replace(hour=23, minute=59, second=59, microsecond=0)
     days_left = max((expiry_date - datetime.utcnow()).days, 0)
 
+    # Lisans süresi dolmuş mu?
     if datetime.utcnow() > expiry_date:
         return jsonify({
+            "success": False,
             "status": "error",
             "message": "Lisans süresi dolmuş",
-            "username": username,
+            "username": db_username,
+            "license_key": db_license_key,
             "expire_date": expiry_date.strftime("%Y-%m-%d"),
             "days_left": 0
         }), 403
 
+    # Başarılı giriş
     return jsonify({
+        "success": True,
         "status": "success",
-        "username": username,
+        "username": db_username,
+        "license_key": db_license_key,
         "start_date": start_date.strftime("%Y-%m-%d"),
         "expire_date": expiry_date.strftime("%Y-%m-%d"),
         "days_left": days_left
@@ -210,4 +232,3 @@ def api_check_license():
 # --------------------- Run App ---------------------
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=True)
