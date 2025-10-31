@@ -14,9 +14,9 @@ app.secret_key = os.getenv("APP_SECRET_KEY")
 DB_URL = os.getenv("DB_URL")
 ADMIN_USER = os.getenv("ADMIN_USERNAME")
 ADMIN_PASS = os.getenv("ADMIN_PASSWORD")
-API_SECRET = os.getenv("API_SECRET_KEY")
-ALLOWED_IP = os.getenv("ALLOWED_IP")  # Panel’e sadece bu IP erişebilir
+API_KEY = os.getenv("API_SECRET_KEY")  # API key
 
+# --------------------- Database ---------------------
 def get_db():
     return psycopg2.connect(DB_URL)
 
@@ -41,19 +41,12 @@ def generate_license_key():
     chars = string.ascii_uppercase + string.digits
     return '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(6))
 
-# --------------------- IP veya login kontrol ---------------------
-@app.before_request
-def restrict_panel():
-    if request.path.startswith("/panel"):
-        if request.remote_addr != ALLOWED_IP and "user" not in session:
-            return "❌ Erişim reddedildi", 403
-
-# --------------------- Panel Routes ---------------------
+# --------------------- Panel ---------------------
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
         if username == ADMIN_USER and password == ADMIN_PASS:
             session["user"] = username
             flash("✅ Başarıyla giriş yapıldı.", "success")
@@ -63,8 +56,9 @@ def login():
 
 @app.route("/panel")
 def panel():
-    if "user" not in session and request.remote_addr != ALLOWED_IP:
+    if "user" not in session:
         return redirect("/")
+    
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -95,7 +89,7 @@ def panel():
 
 @app.route("/add_license", methods=["POST"])
 def add_license():
-    if "user" not in session and request.remote_addr != ALLOWED_IP:
+    if "user" not in session:
         return redirect("/")
     username = request.form.get("username", "").strip()
     key = request.form.get("key", "").strip()
@@ -115,7 +109,7 @@ def add_license():
     except:
         days = 30
 
-    now = datetime.utcnow() + timedelta(hours=3)
+    now = datetime.utcnow()
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
@@ -129,7 +123,7 @@ def add_license():
 
 @app.route("/delete_license/<int:id>")
 def delete_license(id):
-    if "user" not in session and request.remote_addr != ALLOWED_IP:
+    if "user" not in session:
         return redirect("/")
     conn = get_db()
     cur = conn.cursor()
@@ -139,16 +133,11 @@ def delete_license(id):
     flash("🗑️ Lisans silindi.", "warning")
     return redirect("/panel")
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    flash("👋 Başarıyla çıkış yapıldı.", "info")
-    return redirect("/")
-
 @app.route("/extend_license/<int:id>", methods=["POST"])
 def extend_license(id):
-    if "user" not in session and request.remote_addr != ALLOWED_IP:
+    if "user" not in session:
         return redirect("/")
+
     try:
         extend_days = int(request.form.get("extend_days", "0"))
         if extend_days <= 0:
@@ -176,47 +165,39 @@ def extend_license(id):
     flash(f"✅ Lisans süresi {extend_days} gün uzatıldı.", "success")
     return redirect("/panel")
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("👋 Başarıyla çıkış yapıldı.", "info")
+    return redirect("/")
+
 # --------------------- Lisans Kontrol API ---------------------
 @app.route("/check_license", methods=["POST"])
 def check_license():
-    data = request.get_json()
-    if not data or data.get("api_secret") != API_SECRET:
+    api_key = request.headers.get("x-api-key")
+    if api_key != API_KEY:
         return jsonify({"success": False, "message": "Unauthorized"}), 401
 
+    data = request.get_json()
     username = data.get("username", "").strip()
     license_key = data.get("license_key", "").strip()
 
     if not username or not license_key:
-        return jsonify({
-            "success": False,
-            "status": "error", 
-            "message": "Kullanıcı adı ve lisans anahtarı gerekli"
-        }), 400
+        return jsonify({"success": False, "message": "Kullanıcı adı ve lisans anahtarı gerekli"}), 400
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT username, license_key, start_date, expiry_days FROM licenses WHERE username = %s", (username,))
-    user_row = cur.fetchone()
-    
-    if not user_row:
-        conn.close()
-        return jsonify({
-            "success": False,
-            "status": "error", 
-            "message": "Kullanıcı adı hatalı"
-        }), 404
-    
-    db_username, db_license_key, start_date, expiry_days = user_row
-    
-    if db_license_key != license_key:
-        conn.close()
-        return jsonify({
-            "success": False,
-            "status": "error", 
-            "message": "Lisans anahtarı hatalı"
-        }), 404
-    
+    cur.execute("SELECT username, license_key, start_date, expiry_days FROM licenses WHERE username=%s", (username,))
+    row = cur.fetchone()
     conn.close()
+
+    if not row:
+        return jsonify({"success": False, "message": "Kullanıcı adı hatalı"}), 404
+
+    db_username, db_license_key, start_date, expiry_days = row
+    if db_license_key != license_key:
+        return jsonify({"success": False, "message": "Lisans anahtarı hatalı"}), 404
+
     expiry_date = start_date + timedelta(days=expiry_days)
     expiry_date = expiry_date.replace(hour=23, minute=59, second=59, microsecond=0)
     days_left = max((expiry_date - datetime.utcnow()).days, 0)
@@ -224,7 +205,6 @@ def check_license():
     if datetime.utcnow() > expiry_date:
         return jsonify({
             "success": False,
-            "status": "error",
             "message": "Lisans süresi dolmuş",
             "username": db_username,
             "license_key": db_license_key,
@@ -234,7 +214,6 @@ def check_license():
 
     return jsonify({
         "success": True,
-        "status": "success",
         "username": db_username,
         "license_key": db_license_key,
         "start_date": start_date.strftime("%Y-%m-%d"),
@@ -242,7 +221,7 @@ def check_license():
         "days_left": days_left
     })
 
-# --------------------- Run App ---------------------
+# --------------------- Run ---------------------
 if __name__ == "__main__":
     init_db()
     app.run(host="0.0.0.0", port=5000)
